@@ -1,0 +1,19 @@
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  url: <%= ENV["DATABASE_URL"] %>
+
+development:
+  <<: *default
+  database: arua_backend_development
+
+test:
+  <<: *default
+  database: arua_backend_test
+
+production:
+  <<: *default
+  database: arua_backend_production
+  username: arua_backend
+  password: <%= ENV["ARUA_BACKEND_DATABASE_PASSWORD"] %>
