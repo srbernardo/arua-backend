@@ -54,7 +54,7 @@ module Api
     end
 
     def serialize_cart
-      items = @cart.cart_items.includes(:product).map do |item|
+      items = @cart.cart_items.includes(product: :category).map do |item|
         product = item.product
         {
           id: item.id,
@@ -63,7 +63,8 @@ module Api
             name: product.name,
             price: product.price.to_f,
             images: product.images.map { |img| url_for(img) },
-            colors: product.colors
+            colors: product.colors,
+            category_id: product.category.slug
           },
           quantity: item.quantity
         }
