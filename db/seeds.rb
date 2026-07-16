@@ -1,3 +1,5 @@
+require "open-uri"
+
 categories = [
   { slug: "top-bikini", name: "Top Bikini" },
   { slug: "cueca-bikini", name: "Cueca Bikini" },
@@ -33,17 +35,30 @@ colors = ["#D4916E", "#F3EBE2", "#C4CFDE"]
 products_data.each do |data|
   category = Category.find_by!(slug: data[:category_slug])
 
-  Product.find_or_create_by!(id: data[:id]) do |p|
+  product = Product.find_or_create_by!(id: data[:id]) do |p|
     p.name = data[:name]
     p.price = data[:price]
     p.category = category
     p.colors = colors
-    p.images = [
-      "/images/product-#{data[:id]}.png",
-      "https://picsum.photos/seed/#{data[:id]}a/320/360",
-      "https://picsum.photos/seed/#{data[:id]}b/320/360",
-      "https://picsum.photos/seed/#{data[:id]}c/320/360"
-    ]
+  end
+
+  next if product.images.attached?
+
+  filenames = ["#{data[:id]}.png", "#{data[:id]}a.jpg", "#{data[:id]}b.jpg", "#{data[:id]}c.jpg"]
+  urls = [
+    "https://picsum.photos/seed/#{data[:id]}/320/360",
+    "https://picsum.photos/seed/#{data[:id]}a/320/360",
+    "https://picsum.photos/seed/#{data[:id]}b/320/360",
+    "https://picsum.photos/seed/#{data[:id]}c/320/360"
+  ]
+
+  urls.each_with_index do |url, index|
+    begin
+      downloaded = URI.open(url, read_timeout: 5)
+      product.images.attach(io: downloaded, filename: filenames[index], content_type: "image/png")
+    rescue => e
+      puts "  [warn] Failed to download #{url}: #{e.message}"
+    end
   end
 end
 
