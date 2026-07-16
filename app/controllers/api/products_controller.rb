@@ -1,7 +1,7 @@
 module Api
   class ProductsController < ApplicationController
     def index
-      products = Product.includes(:product_images, :category)
+      products = Product.includes(:category)
 
       if params[:category_id].present?
         products = products.joins(:category).where(categories: { slug: params[:category_id] })
@@ -23,7 +23,7 @@ module Api
     end
 
     def show
-      product = Product.includes(:product_images, :category).find(params[:id])
+      product = Product.includes(:category).find(params[:id])
       render json: serialize_product(product)
     end
 
@@ -34,7 +34,7 @@ module Api
         id: product.id,
         name: product.name,
         price: product.price.to_f,
-        images: product.product_images.map(&:url),
+        images: product.images,
         colors: product.colors
       }
     end

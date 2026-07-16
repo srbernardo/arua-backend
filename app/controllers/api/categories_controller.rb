@@ -24,7 +24,7 @@ module Api
         id: product.id,
         name: product.name,
         price: product.price.to_f,
-        images: product.product_images.map(&:url),
+        images: product.images,
         colors: product.colors
       }
     end

@@ -33,25 +33,18 @@ colors = ["#D4916E", "#F3EBE2", "#C4CFDE"]
 products_data.each do |data|
   category = Category.find_by!(slug: data[:category_slug])
 
-  product = Product.find_or_create_by!(id: data[:id]) do |p|
+  Product.find_or_create_by!(id: data[:id]) do |p|
     p.name = data[:name]
     p.price = data[:price]
     p.category = category
     p.colors = colors
-  end
-
-  images = [
-    "/images/product-#{data[:id]}.png",
-    "https://picsum.photos/seed/#{data[:id]}a/320/360",
-    "https://picsum.photos/seed/#{data[:id]}b/320/360",
-    "https://picsum.photos/seed/#{data[:id]}c/320/360"
-  ]
-
-  images.each_with_index do |url, index|
-    ProductImage.find_or_create_by!(product: product, position: index) do |img|
-      img.url = url
-    end
+    p.images = [
+      "/images/product-#{data[:id]}.png",
+      "https://picsum.photos/seed/#{data[:id]}a/320/360",
+      "https://picsum.photos/seed/#{data[:id]}b/320/360",
+      "https://picsum.photos/seed/#{data[:id]}c/320/360"
+    ]
   end
 end
 
-puts "Seeded #{Category.count} categories and #{Product.count} products with #{ProductImage.count} images."
+puts "Seeded #{Category.count} categories and #{Product.count} products."
