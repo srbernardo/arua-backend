@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_16_174843) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_16_204425) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -71,8 +71,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_16_174843) do
     t.bigint "category_id", null: false
     t.jsonb "colors", default: []
     t.datetime "created_at", null: false
+    t.jsonb "image_colors", default: []
     t.string "name"
     t.decimal "price"
+    t.string "size"
     t.datetime "updated_at", null: false
     t.index ["category_id"], name: "index_products_on_category_id"
   end
