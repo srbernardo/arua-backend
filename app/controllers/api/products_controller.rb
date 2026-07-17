@@ -34,7 +34,10 @@ module Api
         id: product.id,
         name: product.name,
         price: product.price.to_f,
-        images: product.images.map { |img| url_for(img) },
+        size: product.size,
+        images_by_color: product.image_colors.map { |color, indices|
+          { color: color, images: indices.map { |i| { url: url_for(product.images[i]) } } }
+        },
         colors: product.colors,
         category_id: product.category.slug
       }
