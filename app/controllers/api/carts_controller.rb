@@ -7,10 +7,15 @@ module Api
     end
 
     def add_item
-      product = Product.find(params[:product_id])
+      variant = Variant.find(params[:variant_id])
       quantity = [params.fetch(:quantity, 1).to_i, 1].max
 
-      item = @cart.cart_items.find_or_initialize_by(product: product)
+      if variant.stock < quantity
+        render json: { errors: ["Estoque insuficiente"] }, status: :unprocessable_entity
+        return
+      end
+
+      item = @cart.cart_items.find_or_initialize_by(variant: variant)
       item.quantity = item.new_record? ? quantity : item.quantity + quantity
 
       if item.save
@@ -26,6 +31,8 @@ module Api
 
       if quantity <= 0
         item.destroy
+      elsif quantity > item.variant.stock
+        render json: { errors: ["Estoque insuficiente"] }, status: :unprocessable_entity
       elsif item.update(quantity: quantity)
         render json: serialize_cart
       else
@@ -54,19 +61,25 @@ module Api
     end
 
     def serialize_cart
-      items = @cart.cart_items.includes(product: :category).map do |item|
-        product = item.product
+      items = @cart.cart_items.includes(variant: { product: :category }).map do |item|
+        product = item.variant.product
         {
           id: item.id,
           product: {
             id: product.id,
             name: product.name,
             price: product.price.to_f,
+            sizes: product.sizes,
             images_by_color: product.image_colors.map { |color, indices|
               { color: color, images: indices.map { |i| { url: url_for(product.images[i]) } } }
             },
             colors: product.colors,
             category_id: product.category.slug
+          },
+          variant: {
+            size: item.variant.size,
+            color: item.variant.color,
+            sku: item.variant.sku
           },
           quantity: item.quantity
         }

@@ -34,11 +34,14 @@ module Api
         id: product.id,
         name: product.name,
         price: product.price.to_f,
-        size: product.size,
+        sizes: product.sizes,
         images_by_color: product.image_colors.map { |color, indices|
           { color: color, images: indices.map { |i| { url: url_for(product.images[i]) } } }
         },
         colors: product.colors,
+        variants: product.variants.map { |v|
+          { id: v.id, size: v.size, color: v.color, stock: v.stock, sku: v.sku }
+        },
         category_id: product.category.slug
       }
     end
