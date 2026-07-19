@@ -1,0 +1,9 @@
+class User < ApplicationRecord
+  validates :name, presence: true
+  validates :phone, presence: true, uniqueness: true
+  validates :phone, format: { with: /\A\d{9}\z/, message: "must be exactly 9 digits" }
+
+  def self.find_by_phone(phone)
+    find_by(phone: phone.delete(" "))
+  end
+end
