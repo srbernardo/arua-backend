@@ -5,6 +5,9 @@ Rails.application.routes.draw do
     resources :categories, only: [:index, :show], param: :slug
     resources :products, only: [:index, :show]
 
+    post "users/lookup", to: "users#lookup"
+    resources :users, only: [:create]
+
     resource :cart, only: [:show] do
       post :add_item
       delete :clear
