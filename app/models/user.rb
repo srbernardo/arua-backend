@@ -1,4 +1,6 @@
 class User < ApplicationRecord
+  has_many :addresses, dependent: :destroy
+
   validates :name, presence: true
   validates :phone, presence: true, uniqueness: true
   validates :phone, format: { with: /\A\d{9}\z/, message: "must be exactly 9 digits" }
