@@ -39,17 +39,13 @@ module Api
     private
 
     def authenticate_user
-      phone = auth_user_params[:phone].presence || request.headers["X-Phone"].presence
+      phone = request.headers["X-Phone"]
       @user = User.find_by_phone(phone) if phone
       render json: { error: "Utilizador não encontrado" }, status: :unauthorized unless @user
     end
 
     def address_params
       params.permit(:street, :neighborhood, :city, :state, :zip, :default)
-    end
-
-    def auth_user_params
-      params.permit(:phone)
     end
 
     def serialize_address(address)
