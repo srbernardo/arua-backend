@@ -24,6 +24,9 @@ services:
       DATABASE_URL: postgres://arua:arua_dev@db:5432/arua_backend_development
       RAILS_ENV: development
       RAILS_MASTER_KEY: ${RAILS_MASTER_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      STORE_EMAIL: ${STORE_EMAIL:-}
+      STORE_WHATSAPP_PHONE: ${STORE_WHATSAPP_PHONE:-}
     volumes:
       - .:/rails
     depends_on:
