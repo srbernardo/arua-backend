@@ -16,5 +16,9 @@ Rails.application.routes.draw do
     end
 
     resources :addresses, only: [:index, :create, :update, :destroy]
+
+    get "favorites", to: "favorites#index"
+    post "favorites", to: "favorites#create"
+    delete "favorites/:product_id", to: "favorites#destroy"
   end
 end
