@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_26_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_26_100001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -90,6 +90,39 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_26_000000) do
     t.index ["user_id"], name: "index_favorites_on_user_id"
   end
 
+  create_table "order_items", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "order_id", null: false
+    t.bigint "product_id", null: false
+    t.integer "quantity", default: 1, null: false
+    t.decimal "unit_price", precision: 10, scale: 2, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "variant_id", null: false
+    t.index ["order_id"], name: "index_order_items_on_order_id"
+    t.index ["product_id"], name: "index_order_items_on_product_id"
+    t.index ["variant_id"], name: "index_order_items_on_variant_id"
+  end
+
+  create_table "orders", force: :cascade do |t|
+    t.string "address_city", null: false
+    t.string "address_neighborhood"
+    t.string "address_state", null: false
+    t.string "address_street", null: false
+    t.string "address_zip", null: false
+    t.datetime "created_at", null: false
+    t.string "order_number", null: false
+    t.string "payment_method", null: false
+    t.decimal "shipping", precision: 10, scale: 2, default: "7.99", null: false
+    t.string "status", default: "pending", null: false
+    t.decimal "subtotal", precision: 10, scale: 2, null: false
+    t.decimal "total", precision: 10, scale: 2, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["order_number"], name: "index_orders_on_order_number", unique: true
+    t.index ["user_id", "created_at"], name: "index_orders_on_user_id_and_created_at"
+    t.index ["user_id"], name: "index_orders_on_user_id"
+  end
+
   create_table "products", force: :cascade do |t|
     t.bigint "category_id", null: false
     t.jsonb "colors", default: []
@@ -129,6 +162,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_26_000000) do
   add_foreign_key "cart_items", "variants"
   add_foreign_key "favorites", "products"
   add_foreign_key "favorites", "users"
+  add_foreign_key "order_items", "orders"
+  add_foreign_key "order_items", "products"
+  add_foreign_key "order_items", "variants"
+  add_foreign_key "orders", "users"
   add_foreign_key "products", "categories"
   add_foreign_key "variants", "products"
 end
