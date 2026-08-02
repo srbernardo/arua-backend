@@ -1,9 +1,26 @@
 module Api
   class OrdersController < ApplicationController
+    include Api::CartSerialization
+
     before_action :authenticate_user
 
     MAX_ORDERS_PER_HOUR = 5
     SHIPPING_COST = 7.99
+
+    def index
+      orders = @user.orders.includes(order_items: { product: { images_attachments: :blob }, variant: :product })
+                    .order(created_at: :desc)
+
+      render json: orders.map { |order| serialize_order_summary(order) }
+    end
+
+    def show
+      order = @user.orders.includes(order_items: { product: { images_attachments: :blob }, variant: :product })
+                   .find(params[:id])
+      render json: serialize_order(order)
+    rescue ActiveRecord::RecordNotFound
+      render json: { error: "Pedido não encontrado" }, status: :not_found
+    end
 
     def create
       recent_orders = @user.orders.where("created_at > ?", 1.hour.ago).count
@@ -12,19 +29,43 @@ module Api
         return
       end
 
-      cart_items = CartItem.where(id: order_params[:item_ids]).includes(variant: :product)
+      cart = find_session_cart
+      cart_items = cart ? cart.cart_items.where(id: order_params[:item_ids]).includes(variant: :product) : []
 
       if cart_items.empty?
         render json: { error: "Nenhum item válido selecionado" }, status: :unprocessable_entity
         return
       end
 
-      cart_items.each do |item|
-        product = item.variant.product
-        if product.nil?
-          render json: { error: "Produto não encontrado para o item #{item.id}" }, status: :unprocessable_entity
-          return
-        end
+      if cart_items.size != order_params[:item_ids].size
+        render json: { error: "Alguns itens já não estão disponíveis." }, status: :unprocessable_entity
+        return
+      end
+
+      invalid_items = cart_items.select { |item| item.variant.nil? || item.variant.product.nil? }
+      unless invalid_items.empty?
+        CartItem.where(id: invalid_items.map(&:id)).delete_all
+        render json: {
+          error: "Alguns produtos já não estão disponíveis e foram removidos do carrinho.",
+          cart: serialize_cart(cart.reload)
+        }, status: :unprocessable_entity
+        return
+      end
+
+      unavailable = cart_items.select { |item| item.variant.stock < item.quantity }
+      unless unavailable.empty?
+        CartItem.where(id: unavailable.map(&:id)).delete_all
+        names = unavailable.map { |item| "#{item.variant.product.name} (#{item.variant.size})" }
+        message = if names.length == 1
+                    "O item #{names.first} já não está disponível."
+                  else
+                    "Os itens #{names.join(', ')} já não estão disponíveis."
+                  end
+        render json: {
+          error: message,
+          cart: serialize_cart(cart.reload)
+        }, status: :unprocessable_entity
+        return
       end
 
       order = nil
@@ -91,9 +132,7 @@ module Api
 
       OrderConfirmationJob.perform_later(order.id)
 
-      whatsapp_url = build_whatsapp_url(order)
-
-      render json: serialize_order(order, whatsapp_url), status: :created
+      render json: serialize_order(order).merge(cart: serialize_cart(cart.reload)), status: :created
     end
 
     private
@@ -104,10 +143,15 @@ module Api
       render json: { error: "Utilizador não encontrado" }, status: :unauthorized unless @user
     end
 
+    def find_session_cart
+      token = request.headers["X-Cart-Token"].presence
+      Cart.find_by(session_id: token)
+    end
+
     def order_params
       params.permit(
         :payment_method,
-        :item_ids,
+        item_ids: [],
         address: [:street, :neighborhood, :city, :state, :zip]
       )
     end
@@ -135,10 +179,13 @@ module Api
       "https://wa.me/#{store_phone}?text=#{message}"
     end
 
-    def serialize_order(order, whatsapp_url)
+    def serialize_order(order)
       items = order.order_items.includes(:product, :variant).map do |item|
         {
+          id: item.id,
+          product_id: item.product.id,
           product_name: item.product.name,
+          image_url: item.product.images.attached? ? url_for(item.product.images.first) : nil,
           variant_size: item.variant.size,
           variant_color: item.variant.color,
           quantity: item.quantity,
@@ -162,8 +209,23 @@ module Api
         shipping: order.shipping.to_f,
         total: order.total.to_f,
         items: items,
-        whatsapp_url: whatsapp_url,
+        whatsapp_url: build_whatsapp_url(order),
         created_at: order.created_at
+      }
+    end
+
+    def serialize_order_summary(order)
+      first_item = order.order_items.first
+      first_product = first_item&.product
+
+      {
+        id: order.id,
+        order_number: order.order_number,
+        status: order.status,
+        total: order.total.to_f,
+        created_at: order.created_at,
+        item_count: order.order_items.sum(:quantity),
+        image_url: first_product&.images&.attached? ? url_for(first_product.images.first) : nil
       }
     end
   end
