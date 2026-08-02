@@ -10,6 +10,7 @@ Rails.application.routes.draw do
 
     resource :cart, only: [:show] do
       post :add_item
+      post :attach
       delete :clear
       patch "items/:id", to: "carts#update_item", as: :cart_item_update
       delete "items/:id", to: "carts#remove_item", as: :cart_item_remove
