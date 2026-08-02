@@ -10,7 +10,7 @@ class Order < ApplicationRecord
 
   scope :recent, -> { where("created_at > ?", 1.hour.ago) }
 
-  before_create :generate_order_number
+  before_validation :generate_order_number
 
   private
 
