@@ -51,7 +51,42 @@ module Api
       render json: serialize_cart
     end
 
+    def attach
+      user = User.find_by_phone(request.headers["X-Phone"])
+      return render json: { error: "Utilizador não encontrado" }, status: :unauthorized unless user
+
+      if @cart.user_id == user.id
+        render json: serialize_cart
+        return
+      end
+
+      ActiveRecord::Base.transaction do
+        user_cart = Cart.find_by(user_id: user.id)
+
+        if user_cart
+          merge_items(user_cart)
+          user_cart.destroy!
+        end
+
+        @cart.update!(user_id: user.id)
+      end
+
+      render json: serialize_cart
+    end
+
     private
+
+    def merge_items(user_cart)
+      user_cart.cart_items.includes(:variant).find_each do |existing|
+        variant = existing.variant
+        next if variant.stock <= 0
+
+        item = @cart.cart_items.find_or_initialize_by(variant: variant)
+        quantity = item.new_record? ? existing.quantity : item.quantity + existing.quantity
+        item.quantity = [quantity, variant.stock].min
+        item.save!
+      end
+    end
 
     def find_or_create_cart
       token = request.headers["X-Cart-Token"].presence
