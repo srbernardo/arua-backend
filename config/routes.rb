@@ -22,6 +22,6 @@ Rails.application.routes.draw do
     post "favorites", to: "favorites#create"
     delete "favorites/:product_id", to: "favorites#destroy"
 
-    resources :orders, only: [:create]
+    resources :orders, only: [:create, :index, :show]
   end
 end
