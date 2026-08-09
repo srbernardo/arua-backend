@@ -160,23 +160,38 @@ module Api
       store_phone = ENV.fetch("STORE_WHATSAPP_PHONE", "")
       return nil if store_phone.blank?
 
+      separator = "________________________"
+
       items_text = order.order_items.includes(:product, :variant).map do |item|
-        "#{item.quantity}x #{item.product.name} (#{item.variant.size}/#{item.variant.color}) - #{item.unit_price.to_f} €"
-      end.join("%0A")
+        "#{item.quantity}x - *#{item.product.name}* (#{item.variant.size}/#{item.variant.color})\n" \
+        "#{item.unit_price.to_f} €"
+      end.join("\n\n#{separator}\n\n")
 
-      message = "Pedido ##{order.order_number}%0A" \
-                 "%0A" \
-                 "#{items_text}%0A" \
-                 "%0A" \
-                 "Subtotal: #{order.subtotal} €%0A" \
-                 "Frete: #{order.shipping} €%0A" \
-                 "Total: #{order.total} €%0A" \
-                 "%0A" \
-                 "Pagamento: #{order.payment_method == 'mbway' ? 'MB Way' : 'Dinheiro'}%0A" \
-                 "Morada: #{order.address_street}, #{order.address_city}, #{order.address_state}%0A" \
-                 "Código Postal: #{order.address_zip}"
+      message = "*ARUA - Loja Online*\n" \
+                 "*Pedido ##{order.order_number}*\n" \
+                 "\n" \
+                 "*Meu nome é #{order.user.name}, contato: #{order.user.phone}*\n" \
+                 "#{separator}\n" \
+                 "\n" \
+                 "*Itens do Pedido:*\n" \
+                 "#{items_text}\n" \
+                 "\n" \
+                 "#{separator}\n" \
+                 "\n" \
+                 "*Subtotal:* #{order.subtotal} €\n" \
+                 "*Entrega:* #{order.shipping} €\n" \
+                 "*Total:* #{order.total} €\n" \
+                 "\n" \
+                 "#{separator}\n" \
+                 "\n" \
+                 "*Pagamento em:* #{order.payment_method == 'mbway' ? 'MB Way' : 'Dinheiro'}\n" \
+                 "\n" \
+                 "*Morada de Entrega*\n" \
+                 "#{order.address_street}\n" \
+                 "#{order.address_neighborhood}\n" \
+                 "#{order.address_city}, #{order.address_state}, #{order.address_zip}"
 
-      "https://wa.me/#{store_phone}?text=#{message}"
+      "https://wa.me/#{store_phone}?text=#{URI.encode_www_form_component(message)}"
     end
 
     def serialize_order(order)
