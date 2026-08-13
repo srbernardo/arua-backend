@@ -23,7 +23,8 @@ module Api
           variant: {
             size: item.variant.size,
             color: item.variant.color,
-            sku: item.variant.sku
+            sku: item.variant.sku,
+            stock: item.variant.stock
           },
           quantity: item.quantity
         }
