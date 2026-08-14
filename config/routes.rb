@@ -36,7 +36,7 @@ Rails.application.routes.draw do
 
       get "dashboard", to: "dashboard#index"
 
-      resources :products, only: [:index, :show]
+      resources :products
       resources :orders, only: [:index, :show]
       resources :categories, only: [:index, :create, :update, :destroy], param: :slug
       resources :users, only: [:index, :show]
