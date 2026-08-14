@@ -201,3 +201,30 @@ products_data.each do |data|
 end
 
 puts "Seeded #{Category.count} categories, #{Product.count} products, #{Variant.count} variants."
+
+# ---------------------------------------------------------------------------
+# Initial admin (Part 2 — Devise admin authentication)
+#
+# Credentials come from ENV (or Rails credentials), never hardcoded:
+#
+#   ADMIN_EMAIL=admin@arua.pt ADMIN_PASSWORD='<strong password>' bin/rails db:seed
+#
+# For production, set ADMIN_EMAIL/ADMIN_PASSWORD in the deployment env, or use
+# Rails credentials (admin.email / admin.password).
+# ---------------------------------------------------------------------------
+admin_email = ENV["ADMIN_EMAIL"].presence || Rails.application.credentials.dig(:admin, :email)
+admin_password = ENV["ADMIN_PASSWORD"].presence || Rails.application.credentials.dig(:admin, :password)
+
+if admin_email.present? && admin_password.present?
+  admin = Admin.find_or_initialize_by(email: admin_email.to_s.strip.downcase)
+
+  if admin.new_record? || !admin.valid_password?(admin_password)
+    admin.password = admin_password
+    admin.save!
+    puts "Admin inicial configurado: #{admin.email}"
+  else
+    puts "Admin inicial já existente: #{admin.email}"
+  end
+else
+  puts "[skip] Admin inicial não criado — defina ADMIN_EMAIL e ADMIN_PASSWORD (ou credenciais admin.email/admin.password)."
+end
