@@ -15,6 +15,10 @@ development:
 test:
   <<: *default
   database: arua_backend_test
+  host: <%= ENV.fetch("DB_HOST", "localhost") %>
+  port: <%= ENV.fetch("DB_PORT", 5433) %>
+  username: <%= ENV.fetch("DB_USERNAME", "arua") %>
+  password: <%= ENV.fetch("DB_PASSWORD", "arua_dev") %>
 
 production:
   <<: *default
