@@ -2,6 +2,15 @@ class ApplicationController < ActionController::API
   # ActionController::API does not include CSRF protection by default.
   # The admin namespace enables it explicitly (see Api::Admin::*Controller).
   include ActionController::RequestForgeryProtection
+  include ActionController::Cookies
+
+  # ActionController::API does not inherit `allow_forgery_protection` from the
+  # app config (only ActionController::Base does), so mirror it here.
+  # In development/production it stays unset (CSRF enabled via
+  # `protect_from_forgery` in the admin controllers); in the test environment
+  # it follows config/environments/test.rb and is disabled.
+  configured_forgery = Rails.application.config.action_controller.allow_forgery_protection
+  self.allow_forgery_protection = configured_forgery unless configured_forgery.nil?
 
   private
 
