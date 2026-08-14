@@ -27,7 +27,9 @@ class AdminAuthTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
     body = JSON.parse(response.body)
     assert body["error"].present?
-    assert_nil cookies["_arua_admin_session"]
+
+    get "/api/admin/dashboard"
+    assert_response :unauthorized
   end
 
   test "login com email inexistente retorna 401" do
@@ -129,5 +131,94 @@ class AdminAuthTest < ActionDispatch::IntegrationTest
 
     get "/api/products"
     assert_response :success
+  end
+
+  # --- Admin categories CRUD -------------------------------------------------
+
+  test "criar categoria autenticado retorna 201" do
+    post "/api/admin/sign_in", params: @credentials, as: :json
+
+    post "/api/admin/categories",
+         params: { category: { name: "Novo Modelo", slug: "novo-modelo" } },
+         as: :json
+
+    assert_response :created
+    body = JSON.parse(response.body)
+    assert_equal "Novo Modelo", body["name"]
+    assert_equal "novo-modelo", body["slug"]
+    assert_equal 0, body["product_count"]
+  end
+
+  test "criar categoria sem autenticação retorna 401" do
+    post "/api/admin/categories",
+         params: { category: { name: "Novo Modelo", slug: "novo-modelo" } },
+         as: :json
+
+    assert_response :unauthorized
+  end
+
+  test "criar categoria com dados inválidos retorna 422" do
+    post "/api/admin/sign_in", params: @credentials, as: :json
+
+    post "/api/admin/categories",
+         params: { category: { name: "", slug: "" } },
+         as: :json
+
+    assert_response :unprocessable_entity
+    assert JSON.parse(response.body)["errors"].present?
+  end
+
+  test "atualizar categoria autenticado retorna a categoria atualizada" do
+    category = categories(:top_bikini)
+    post "/api/admin/sign_in", params: @credentials, as: :json
+
+    patch "/api/admin/categories/#{category.slug}",
+          params: { category: { name: "Top Bikini Atualizado" } },
+          as: :json
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "Top Bikini Atualizado", body["name"]
+    assert_equal category.slug, body["slug"]
+  end
+
+  test "atualizar categoria inexistente retorna 404" do
+    post "/api/admin/sign_in", params: @credentials, as: :json
+
+    patch "/api/admin/categories/nao-existe",
+          params: { category: { name: "X" } },
+          as: :json
+
+    assert_response :not_found
+  end
+
+  test "eliminar categoria sem produtos retorna 204" do
+    category = categories(:empty_category)
+    post "/api/admin/sign_in", params: @credentials, as: :json
+
+    delete "/api/admin/categories/#{category.slug}"
+
+    assert_response :no_content
+    assert_not Category.exists?(category.id)
+  end
+
+  test "eliminar categoria com produtos retorna 422" do
+    category = categories(:top_bikini)
+    Product.create!(name: "Produto Teste", price: 10.0, category: category)
+    post "/api/admin/sign_in", params: @credentials, as: :json
+
+    delete "/api/admin/categories/#{category.slug}"
+
+    assert_response :unprocessable_entity
+    assert Category.exists?(category.id)
+  end
+
+  test "eliminar categoria sem autenticação retorna 401" do
+    category = categories(:empty_category)
+
+    delete "/api/admin/categories/#{category.slug}"
+
+    assert_response :unauthorized
+    assert Category.exists?(category.id)
   end
 end
