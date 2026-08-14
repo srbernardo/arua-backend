@@ -28,6 +28,9 @@ gem "rack-cors"
 # Email sending via Resend API
 gem "resend"
 
+# Authentication (admin session-based)
+gem "devise"
+
 # Short unique ID generation
 gem "nanoid"
 
