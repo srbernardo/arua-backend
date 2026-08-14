@@ -1,0 +1,7 @@
+top_bikini:
+  name: Top Bikini
+  slug: top-bikini
+
+empty_category:
+  name: Categoria Vazia
+  slug: categoria-vazia
