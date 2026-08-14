@@ -40,5 +40,33 @@ module AruaBackend
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    # ------------------------------------------------------------------
+    # Admin session authentication (Devise + cookie store, no JWT)
+    #
+    # API-only apps do not include cookies/session middleware by default.
+    # We add them back so the browser stores the admin session as an
+    # HttpOnly cookie. The cookie flags are configurable through ENV so
+    # the same code works in development and production:
+    #
+    #   ADMIN_COOKIE_SECURE   "true"/"false" (default: true in production)
+    #   ADMIN_COOKIE_SAMESITE "lax"/"none"/"strict" (default: "lax")
+    #   ADMIN_COOKIE_DOMAIN   optional domain for shared-parent-domain setups
+    #                         (e.g. ".arua.pt" when API lives on a subdomain)
+    # ------------------------------------------------------------------
+    admin_cookie_secure = ENV.fetch("ADMIN_COOKIE_SECURE", Rails.env.production?.to_s) == "true"
+    admin_cookie_samesite = ENV.fetch("ADMIN_COOKIE_SAMESITE", "lax").to_sym
+
+    admin_session_options = {
+      key: "_arua_admin_session",
+      path: "/",
+      httponly: true,
+      secure: admin_cookie_secure,
+      same_site: admin_cookie_samesite
+    }
+    admin_session_options[:domain] = ENV["ADMIN_COOKIE_DOMAIN"] if ENV["ADMIN_COOKIE_DOMAIN"].present?
+
+    config.middleware.use ActionDispatch::Cookies
+    config.middleware.use ActionDispatch::Session::CookieStore, admin_session_options
   end
 end
