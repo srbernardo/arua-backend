@@ -1,0 +1,5 @@
+# Admin fixture. The encrypted password is generated with Devise's bcrypt
+# encryptor so `valid_password?("password123")` works in tests.
+one:
+  email: admin@arua.test
+  encrypted_password: <%= Devise::Encryptor.digest(Admin, "password123") %>
