@@ -12,7 +12,7 @@ module Api
         email = session_params[:email].to_s.strip.downcase
         password = session_params[:password].to_s
 
-        admin = Admin.find_by(email: email)
+        admin = ::Admin.find_by(email: email)
 
         if admin && admin.valid_password?(password)
           sign_in(:admin, admin)
