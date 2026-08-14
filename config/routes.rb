@@ -1,4 +1,9 @@
 Rails.application.routes.draw do
+  # Devise mapping for the Admin model. Routes are skipped because the API
+  # exposes custom JSON endpoints under /api/admin; the helpers
+  # (current_admin, sign_in, sign_out, ...) are still generated.
+  devise_for :admins, skip: :all
+
   get "up" => "rails/health#show", as: :rails_health_check
 
   namespace :api do
@@ -23,5 +28,18 @@ Rails.application.routes.draw do
     delete "favorites/:product_id", to: "favorites#destroy"
 
     resources :orders, only: [:create, :index, :show]
+
+    namespace :admin do
+      post "sign_in", to: "sessions#create"
+      delete "sign_out", to: "sessions#destroy"
+      get "me", to: "sessions#me"
+
+      get "dashboard", to: "dashboard#index"
+
+      resources :products, only: [:index, :show]
+      resources :orders, only: [:index, :show]
+      resources :categories, only: [:index, :show], param: :slug
+      resources :users, only: [:index, :show]
+    end
   end
 end
