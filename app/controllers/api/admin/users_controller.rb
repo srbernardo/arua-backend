@@ -12,7 +12,12 @@ module Api
           users = users.where("users.name ILIKE ? OR users.phone ILIKE ?", q, q)
         end
 
-        render json: users.map { |u| serialize_user(u) }
+        page, meta = paginate(users)
+
+        render json: {
+          data: page.map { |u| serialize_user(u) },
+          meta: meta
+        }
       end
 
       def show
