@@ -10,7 +10,24 @@ module Api
           orders = orders.where(status: params[:status])
         end
 
-        render json: orders.map { |o| serialize_order_summary(o) }
+        page, meta = paginate(orders)
+
+        render json: {
+          data: page.map { |o| serialize_order_summary(o) },
+          meta: meta
+        }
+      end
+
+      # PATCH /api/admin/orders/:id
+      # Only the status is editable from the admin panel.
+      def update
+        order = Order.find(params[:id])
+        order.update!(status: order_params[:status])
+        render json: serialize_order_summary(order.reload)
+      rescue ActiveRecord::RecordNotFound
+        render json: { error: "Pedido não encontrado" }, status: :not_found
+      rescue ActiveRecord::RecordInvalid => e
+        render json: { errors: e.record.errors.full_messages }, status: :unprocessable_entity
       end
 
       def show
@@ -22,6 +39,10 @@ module Api
       end
 
       private
+
+      def order_params
+        params.require(:order).permit(:status)
+      end
 
       def serialize_order_summary(order)
         first_product = order.order_items.first&.product
