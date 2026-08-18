@@ -164,7 +164,10 @@ products_data.each do |data|
     p.sizes = sizes
   end
 
-  product.variants.destroy_all
+  # Variants referenced by carts or orders cannot be destroyed (FK).
+  # Keep them in place and sync the rest; the same guard the admin API uses.
+  referenced_ids = CartItem.pluck(:variant_id) + OrderItem.pluck(:variant_id)
+  product.variants.where.not(id: referenced_ids).destroy_all
   data[:variants].each do |v|
     product.variants.find_or_create_by!(size: v[:size], color: v[:color]) do |var|
       var.stock = v[:stock]
@@ -202,29 +205,20 @@ end
 
 puts "Seeded #{Category.count} categories, #{Product.count} products, #{Variant.count} variants."
 
-# ---------------------------------------------------------------------------
-# Initial admin (Part 2 — Devise admin authentication)
-#
-# Credentials come from ENV (or Rails credentials), never hardcoded:
-#
-#   ADMIN_EMAIL=admin@arua.pt ADMIN_PASSWORD='<strong password>' bin/rails db:seed
-#
-# For production, set ADMIN_EMAIL/ADMIN_PASSWORD in the deployment env, or use
-# Rails credentials (admin.email / admin.password).
-# ---------------------------------------------------------------------------
-admin_email = ENV["ADMIN_EMAIL"].presence || Rails.application.credentials.dig(:admin, :email)
-admin_password = ENV["ADMIN_PASSWORD"].presence || Rails.application.credentials.dig(:admin, :password)
+# Products are seeded with explicit ids; make sure the id sequences stay
+# ahead of them so future inserts (admin panel) don't collide.
+ActiveRecord::Base.connection.reset_pk_sequence!("products")
+ActiveRecord::Base.connection.reset_pk_sequence!("variants")
 
-if admin_email.present? && admin_password.present?
-  admin = Admin.find_or_initialize_by(email: admin_email.to_s.strip.downcase)
+admin_email = "test@test.com"
+admin_password = "123456"
+admin = Admin.find_or_initialize_by(email: admin_email.to_s.strip.downcase)
 
-  if admin.new_record? || !admin.valid_password?(admin_password)
-    admin.password = admin_password
-    admin.save!
-    puts "Admin inicial configurado: #{admin.email}"
-  else
-    puts "Admin inicial já existente: #{admin.email}"
-  end
+if admin.new_record?
+  admin.password = admin_password
+  admin.save!
 else
-  puts "[skip] Admin inicial não criado — defina ADMIN_EMAIL e ADMIN_PASSWORD (ou credenciais admin.email/admin.password)."
+  admin.update!(password: admin_password)
 end
+puts "Admin inicial configurado: #{admin.email}"
+
