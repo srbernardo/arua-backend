@@ -20,11 +20,13 @@ class AdminProductsTest < ActionDispatch::IntegrationTest
     assert_response :success
     body = JSON.parse(response.body)
 
-    entry = body.find { |p| p["id"] == product.id }
+    entry = body["data"].find { |p| p["id"] == product.id }
     assert_not_nil entry
     assert_equal "Produto Index", entry["name"]
     assert_equal "P", entry.dig("variants", 0, "size")
     assert_equal "top-bikini", entry.dig("category", "slug")
+    assert_equal 1, body.dig("meta", "total")
+    assert_equal 1, body.dig("meta", "page")
   end
 
   test "index filtra por q" do
@@ -34,7 +36,71 @@ class AdminProductsTest < ActionDispatch::IntegrationTest
     get "/api/admin/products", params: { q: "tropical" }
 
     body = JSON.parse(response.body)
-    assert_equal ["Biquíni Tropical"], body.map { |p| p["name"] }
+    assert_equal ["Biquíni Tropical"], body["data"].map { |p| p["name"] }
+  end
+
+  test "index filtra por categoria" do
+    other = Category.create!(name: "Vestidos", slug: "vestidos")
+    create_product!(name: "Da Categoria")
+    Product.create!(name: "Outra Categoria", price: 10.0, category: other)
+
+    get "/api/admin/products", params: { category: "vestidos" }
+
+    body = JSON.parse(response.body)
+    assert_equal ["Outra Categoria"], body["data"].map { |p| p["name"] }
+  end
+
+  test "index pagina por page e per_page" do
+    5.times { |i| create_product!(name: "Produto #{i}") }
+
+    get "/api/admin/products", params: { page: 1, per_page: 2 }
+
+    body = JSON.parse(response.body)
+    assert_equal 2, body["data"].size
+    assert_equal 2, body.dig("meta", "per_page")
+    assert_equal 5, body.dig("meta", "total")
+    assert_equal 3, body.dig("meta", "total_pages")
+
+    get "/api/admin/products", params: { page: 3, per_page: 2 }
+
+    body = JSON.parse(response.body)
+    assert_equal 1, body["data"].size
+  end
+
+  test "index ordena por preço asc e desc" do
+    [30.0, 10.0, 20.0].each { |price| create_product!(name: "Preço #{price}", price: price) }
+
+    get "/api/admin/products", params: { sort: "price", direction: "asc" }
+
+    body = JSON.parse(response.body)
+    assert_equal [10.0, 20.0, 30.0], body["data"].map { |p| p["price"] }
+
+    get "/api/admin/products", params: { sort: "price", direction: "desc" }
+
+    body = JSON.parse(response.body)
+    assert_equal [30.0, 20.0, 10.0], body["data"].map { |p| p["price"] }
+  end
+
+  test "index ordena por stock total e contagem de variantes" do
+    low = Product.create!(name: "Stock Baixo", price: 10.0, category: @category) do |p|
+      p.sizes = ["P"]; p.colors = ["#D4916E"]; p.image_colors = {}
+      p.variants.build(size: "P", color: "#D4916E", stock: 1, sku: "SB-P")
+    end
+    high = Product.create!(name: "Stock Alto", price: 10.0, category: @category) do |p|
+      p.sizes = ["P", "M"]; p.colors = ["#D4916E"]; p.image_colors = {}
+      p.variants.build(size: "P", color: "#D4916E", stock: 5, sku: "HA-P")
+      p.variants.build(size: "M", color: "#D4916E", stock: 5, sku: "HA-M")
+    end
+
+    get "/api/admin/products", params: { sort: "stock", direction: "desc" }
+
+    body = JSON.parse(response.body)
+    assert_equal high.id, body["data"][0]["id"]
+
+    get "/api/admin/products", params: { sort: "variants_count", direction: "desc" }
+
+    body = JSON.parse(response.body)
+    assert_equal high.id, body["data"][0]["id"]
   end
 
   test "show retorna produto com variantes e imagens" do
@@ -284,8 +350,8 @@ class AdminProductsTest < ActionDispatch::IntegrationTest
 
   private
 
-  def create_product!(name: "Produto Teste")
-    Product.create!(name: name, price: 25.0, category: @category) do |p|
+  def create_product!(name: "Produto Teste", price: 25.0)
+    Product.create!(name: name, price: price, category: @category) do |p|
       p.sizes = ["P"]
       p.colors = ["#D4916E"]
       p.variants.build(size: "P", color: "#D4916E", stock: 4, sku: "PT-P-BR")
