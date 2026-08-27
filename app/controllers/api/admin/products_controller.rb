@@ -2,10 +2,17 @@ module Api
   module Admin
     class ProductsController < BaseController
       def index
-        products = Product.includes(:category, :variants).with_attached_images.order(:name)
+        products = Product.includes(:category, :variants).with_attached_images
         products = products.where("products.name ILIKE ?", "%#{params[:q]}%") if params[:q].present?
+        products = products.where(category_id: params[:category_id]) if params[:category_id].present?
+        products = apply_sort(products)
 
-        render json: products.map { |p| serialize_product(p) }
+        page, meta = paginate(products)
+
+        render json: {
+          data: page.map { |p| serialize_product(p) },
+          meta: meta
+        }
       end
 
       def show
@@ -15,10 +22,6 @@ module Api
         render json: { error: "Produto não encontrado" }, status: :not_found
       end
 
-      # POST /api/admin/products
-      # Accepts JSON or multipart/form-data. Images must be sent as files in
-      # multipart form (`product[images][]`). `image_colors` maps each color to
-      # the image indices it belongs to (e.g. { "#D4916E": [0, 1] }).
       def create
         product = Product.new(product_attributes)
 
@@ -37,12 +40,6 @@ module Api
                status: :unprocessable_entity
       end
 
-      # PATCH /api/admin/products/:id
-      # Same payload as create. Variants are synchronized by id: entries with an
-      # existing id are updated, entries without an id are created, and variants
-      # omitted (or sent with `_destroy`) are removed unless referenced by
-      # carts or orders. Images sent in `product[images][]` are appended;
-      # `product[remove_image_ids][]` purges existing attachments.
       def update
         product = Product.includes(:variants).with_attached_images.find(params[:id])
 
@@ -54,7 +51,7 @@ module Api
           product.save!
         end
 
-        render json: serialize_product(product)
+        render json: serialize_product(product.reload)
       rescue ActiveRecord::RecordNotFound
         render json: { error: "Produto não encontrado" }, status: :not_found
       rescue ActiveRecord::RecordInvalid => e
@@ -81,33 +78,98 @@ module Api
 
       private
 
+      SORTABLE_FIELDS = %w[name price category stock variants_count].freeze
+
+      def apply_sort(products)
+        field = params[:sort]
+        return products.order(:name) unless SORTABLE_FIELDS.include?(field)
+
+        direction = params[:direction] == "desc" ? "DESC" : "ASC"
+        tiebreaker = "products.name ASC"
+
+        case field
+        when "name"
+          products.order("products.name #{direction}, products.id ASC")
+        when "price"
+          products.order("products.price #{direction}, products.name ASC")
+        when "category"
+          products.joins(:category).order("categories.name #{direction}, #{tiebreaker}")
+        when "stock"
+          products
+            .select("products.*, (SELECT COALESCE(SUM(variants.stock), 0) FROM variants WHERE variants.product_id = products.id) AS total_stock")
+            .order("total_stock #{direction}, #{tiebreaker}")
+        when "variants_count"
+          products
+            .select("products.*, (SELECT COUNT(*) FROM variants WHERE variants.product_id = products.id) AS variants_count")
+            .order("variants_count #{direction}, #{tiebreaker}")
+        end
+      end
+
       def product_params
-        params.require(:product).permit(
+        source = params.require(:product)
+        permitted = source.permit(
           :name, :price, :category_id,
+          :variants, :image_colors,
           sizes: [],
           colors: [],
-          image_colors: {},
-          variants: [:id, :size, :color, :stock, :sku, :_destroy],
           images: [],
           remove_image_ids: []
         )
+
+        variants = source[:variants]
+        if variants.is_a?(String)
+          variants = JSON.parse(variants)
+        end
+
+        if variants.is_a?(Array)
+          permitted[:variants] = variants.map do |vp|
+            vp = ActionController::Parameters.new(vp) unless vp.is_a?(ActionController::Parameters)
+            vp.permit(:id, :size, :color, :stock, :sku, :_destroy)
+          end
+        end
+
+        image_colors = source[:image_colors]
+        if image_colors.is_a?(String)
+          image_colors = JSON.parse(image_colors)
+        end
+
+        if image_colors.present?
+          image_colors = image_colors.to_unsafe_h if image_colors.is_a?(ActionController::Parameters)
+          permitted[:image_colors] = image_colors
+        end
+
+        permitted.to_unsafe_h
+      rescue JSON::ParserError
+        invalid = Product.new
+        invalid.errors.add(:base, "product[variants] e product[image_colors] devem conter JSON válido")
+        raise ActiveRecord::RecordInvalid, invalid
       end
 
       def product_attributes
         attrs = product_params.except(:variants, :images, :remove_image_ids)
 
         if product_params[:image_colors].present?
-          # multipart form data sends the indices as strings ("0", "1").
           attrs[:image_colors] = product_params[:image_colors].transform_values do |indices|
             Array(indices).map(&:to_i)
           end
+        end
+
+        if (attrs[:sizes].blank? || attrs[:colors].blank?) && variants_params.present?
+          submitted = variants_params.reject { |vp| destroy_requested?(vp) }
+          attrs[:sizes] = submitted.map { |vp| vp[:size].to_s.strip }.reject(&:empty?).uniq if attrs[:sizes].blank?
+          attrs[:colors] = submitted.map { |vp| vp[:color].to_s.strip }.reject(&:empty?).uniq if attrs[:colors].blank?
         end
 
         attrs
       end
 
       def variants_params
-        product_params[:variants]
+        submitted = product_params[:variants]
+        return nil if submitted.blank?
+
+        submitted.map do |vp|
+          vp.is_a?(ActionController::Parameters) ? vp : ActionController::Parameters.new(vp)
+        end
       end
 
       def attach_images(product)
@@ -132,9 +194,6 @@ module Api
         product.images.attachments.where(id: ids).each(&:purge)
       end
 
-      # Keeps variants in sync with the submitted list. Missing variants are
-      # destroyed (unless referenced by carts/orders), submitted ids are
-      # updated and entries without an id are created.
       def sync_variants(product, submitted)
         return if submitted.blank?
 
