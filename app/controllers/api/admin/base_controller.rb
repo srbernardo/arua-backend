@@ -3,6 +3,8 @@ module Api
     # Base controller for all authenticated admin endpoints.
     # Every action here requires a valid admin session cookie.
     class BaseController < ApplicationController
+      include Paginatable
+
       protect_from_forgery with: :exception, unless: -> { request.get? }
       before_action :authenticate_admin!
       before_action :set_csrf_cookie
