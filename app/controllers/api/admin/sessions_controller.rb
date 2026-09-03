@@ -2,6 +2,8 @@ module Api
   module Admin
     class SessionsController < ApplicationController
       protect_from_forgery with: :exception, unless: -> { request.get? }
+      skip_forgery_protection only: [:create]
+      
       before_action :set_csrf_cookie
 
       # POST /api/admin/sign_in
@@ -15,7 +17,10 @@ module Api
         admin = ::Admin.find_by(email: email)
 
         if admin && admin.valid_password?(password)
+          reset_session 
+          
           sign_in(:admin, admin)
+
           render json: { admin: serialize_admin(admin), csrf_token: form_authenticity_token }
         else
           render json: {
