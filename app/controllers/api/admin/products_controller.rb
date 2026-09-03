@@ -4,7 +4,7 @@ module Api
       def index
         products = Product.includes(:category, :variants).with_attached_images
         products = products.where("products.name ILIKE ?", "%#{params[:q]}%") if params[:q].present?
-        products = products.where(category_id: params[:category_id]) if params[:category_id].present?
+        products = products.where(categories: { slug: params[:category] }).references(:category) if params[:category].present?
         products = apply_sort(products)
 
         page, meta = paginate(products)
