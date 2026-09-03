@@ -22,7 +22,7 @@ module Api
       # Only the status is editable from the admin panel.
       def update
         order = Order.find(params[:id])
-        order.update!(status: order_params[:status])
+        order.update!(order_params)
         render json: serialize_order_summary(order.reload)
       rescue ActiveRecord::RecordNotFound
         render json: { error: "Pedido não encontrado" }, status: :not_found
@@ -41,7 +41,7 @@ module Api
       private
 
       def order_params
-        params.require(:order).permit(:status)
+        params.require(:order).permit(:status, :observation)
       end
 
       def serialize_order_summary(order)
@@ -91,6 +91,7 @@ module Api
           total: order.total.to_f,
           items: items,
           user: { id: order.user.id, name: order.user.name, phone: order.user.phone },
+          observation: order.observation,
           created_at: order.created_at
         }
       end

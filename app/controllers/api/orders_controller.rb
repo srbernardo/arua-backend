@@ -224,6 +224,7 @@ module Api
         shipping: order.shipping.to_f,
         total: order.total.to_f,
         items: items,
+        observation: order.observation,
         whatsapp_url: build_whatsapp_url(order),
         created_at: order.created_at
       }
